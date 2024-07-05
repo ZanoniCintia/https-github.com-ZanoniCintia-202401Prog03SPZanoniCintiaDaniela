@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Personas, Ciudadanos y Extranjeros</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f9f0f7;
+            color: #4a004e;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        table,
+        th,
+        td {
+            border: 1px solid #e0d1e6;
+        }
+
+        th,
+        td {
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f4e1f3;
+        }
+
+        .button {
+            padding: 10px 15px;
+            margin: 5px;
+            cursor: pointer;
+            background-color: #d48dd6;
+            border: none;
+            color: white;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            border-radius: 5px;
+            font-weight: bold;
+        }
+
+        .button:hover {
+            background-color: #c373c7;
+        }
+
+        .spinner {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .spinner img {
+            width: 100px;
+            height: 100px;
+        }
+
+        #formABM {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px;
+            border: 1px solid #e0d1e6;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            z-index: 1001;
+            overflow-y: auto;
+            max-height: 80vh;
+        }
+
+        label {
+            display: block;
+            margin: 10px 0 5px;
+        }
+
+        input[type="text"],
+        select {
+            width: calc(100% - 22px);
+            padding: 10px;
+            border: 1px solid #e0d1e6;
+            border-radius: 4px;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Personas-Ciudadanos-Extranjeros</h1>
+
+    <div id="spinner" class="spinner">
+        <img id="spinnerImage" src="spinner.gif" alt="Cargando..." onerror="handleImageError()">
+    </div>
+
+    <div id="formLista">
+        <table id="tablaElementos">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Nombre</th>
+                    <th>Apellido</th>
+                    <th>Fecha Nacimiento</th>
+                    <th>DNI</th>
+                    <th>País Origen</th>
+                    <th>Modificar</th>
+                    <th>Eliminar</th>
+                </tr>
+            </thead>
+            <tbody>
+                
+            </tbody>
+        </table>
+        <button class="button" onclick="mostrarFormulario('alta')">Agregar Elemento</button>
+    </div>
+
+    <div id="formABM">
+        <h2 id="formABMHeader"></h2>
+        <form id="formulario">
+            <label for="nombre">Nombre:</label>
+            <input type="text" id="nombre" name="nombre"><br><br>
+            <label for="apellido">Apellido:</label>
+            <input type="text" id="apellido" name="apellido"><br><br>
+            <label for="fechaNacimiento">Fecha Nacimiento:</label>
+            <input type="text" id="fechaNacimiento" name="fechaNacimiento"><br><br>
+            <label for="tipo">Tipo:</label>
+            <select id="tipo" name="tipo" onchange="mostrarCamposEspecificos()">
+                <option value="ciudadano">Ciudadano</option>
+                <option value="extranjero">Extranjero</option>
+            </select><br><br>
+            <div id="ciudadanoCampos">
+                <label for="dni">DNI:</label>
+                <input type="text" id="dni" name="dni"><br><br>
+            </div>
+            <div id="extranjeroCampos">
+                <label for="paisOrigen">País de Origen:</label>
+                <input type="text" id="paisOrigen" name="paisOrigen"><br><br>
+            </div>
+            <button type="button" class="button" onclick="gestionarElemento('aceptar')">Aceptar</button>
+            <button type="button" class="button" onclick="cancelarGestion()">Cancelar</button>
+        </form>
+    </div>
+
+    <script>
+        let elementos = [];
+        let accionActual = '';
+
+        document.addEventListener("DOMContentLoaded", () => {
+            cargarDatos();
+        });
+
+        function cargarDatos() {
+            mostrarSpinner();
+            const xhr = new XMLHttpRequest();
+            xhr.open("GET", "https://examenesutn.vercel.app/api/PersonaCiudadanoExtranjero", true);
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState === 4) {
+                    ocultarSpinner();
+                    if (xhr.status === 200) {
+                        elementos = JSON.parse(xhr.responseText);
+                        mostrarLista();
+                    } else {
+                        alert("Error al cargar los datos");
+                    }
+                }
+            };
+            xhr.send();
+        }
+
+        function mostrarLista() {
+            const tbody = document.querySelector("#tablaElementos tbody");
+            tbody.innerHTML = "";
+            elementos.forEach((elemento, index) => {
+                const tr = document.createElement("tr");
+                tr.innerHTML = `
+                    <td>${elemento.id}</td>
+                    <td>${elemento.nombre}</td>
+                    <td>${elemento.apellido}</td>
+                    <td>${elemento.fechaNacimiento}</td>
+                    <td>${elemento.dni || 'N/A'}</td>
+                    <td>${elemento.paisOrigen || 'N/A'}</td>
+                    <td><button class="button" onclick="mostrarFormulario('modificar', ${index})">Modificar</button></td>
+                    <td><button class="button" onclick="mostrarFormulario('eliminar', ${index})">Eliminar</button></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function mostrarFormulario(accion, index = null) {
+            accionActual = accion;
+            document.getElementById("formABMHeader").innerText = accion.charAt(0).toUpperCase() + accion.slice(1);
+            document.getElementById("formLista").style.display = "none";
+            document.getElementById("formABM").style.display = "block";
+
+            if (accion === "modificar" || accion === "eliminar") {
+                document.getElementById("nombre").value = elementos[index].nombre;
+                document.getElementById("apellido").value = elementos[index].apellido;
+                document.getElementById("fechaNacimiento").value = elementos[index].fechaNacimiento;
+                document.getElementById("tipo").value = elementos[index].dni ? "ciudadano" : "extranjero";
+                mostrarCamposEspecificos();
+                if (elementos[index].dni) {
+                    document.getElementById("dni").value = elementos[index].dni;
+                } else {
+                    document.getElementById("paisOrigen").value = elementos[index].paisOrigen;
+                }
+                document.getElementById("formulario").dataset.index = index;
+            } else {
+                document.getElementById("formulario").reset();
+                mostrarCamposEspecificos();
+            }
+        }
+
+        async function gestionarElemento(accion) {
+            const nombre = document.getElementById("nombre").value;
+            const apellido = document.getElementById("apellido").value;
+            const fechaNacimiento = document.getElementById("fechaNacimiento").value;
+            const tipo = document.getElementById("tipo").value;
+            let datos = { nombre, apellido, fechaNacimiento };
+
+            if (tipo === "ciudadano") {
+                const dni = document.getElementById("dni").value;
+                datos.dni = dni;
+            } else {
+                const paisOrigen = document.getElementById("paisOrigen").value;
+                datos.paisOrigen = paisOrigen;
+            }
+
+            mostrarSpinner();
+
+            try {
+                let response;
+                if (accion === "aceptar" && accionActual === "alta") {
+                    response = await fetch("https://examenesutn.vercel.app/api/PersonaCiudadanoExtranjero", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify(datos)
+                    });
+                } else if (accion === "aceptar" && accionActual === "modificar") {
+                    const index = document.getElementById("formulario").dataset.index;
+                    datos.id = elementos[index].id;
+                    response = await fetch("https://examenesutn.vercel.app/api/PersonaCiudadanoExtranjero", {
+                        method: "PUT",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify(datos)
+                    });
+                } else if (accion === "aceptar" && accionActual === "eliminar") {
+                    const index = document.getElementById("formulario").dataset.index;
+                    datos = { id: elementos[index].id };
+                    response = await fetch("https://examenesutn.vercel.app/api/PersonaCiudadanoExtranjero", {
+                        method: "DELETE",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify(datos)
+                    });
+                }
+
+                if (response.status === 200) {
+                    if (accionActual === "alta") {
+                        const result = await response.json();
+                        datos.id = result.id;
+                        elementos.push(datos);
+                    } else if (accionActual === "modificar") {
+                        const index = document.getElementById("formulario").dataset.index;
+                        elementos[index] = datos;
+                    } else if (accionActual === "eliminar") {
+                        const index = document.getElementById("formulario").dataset.index;
+                        elementos.splice(index, 1);
+                    }
+                    mostrarLista();
+                } else {
+                    const errorText = await response.text();
+                    console.error("Error:", errorText);
+                    alert("No se pudo realizar la operación");
+                }
+            } catch (error) {
+                console.error("Error:", error);
+                alert("Error al realizar la operación");
+            } finally {
+                ocultarSpinner();
+                ocultarFormularioABM();
+            }
+        }
+
+        function cancelarGestion() {
+            ocultarFormularioABM();
+        }
+
+        function ocultarFormularioABM() {
+            document.getElementById("formABM").style.display = "none";
+            document.getElementById("formLista").style.display = "block";
+        }
+
+        function mostrarCamposEspecificos() {
+            const tipo = document.getElementById("tipo").value;
+            if (tipo === "ciudadano") {
+                document.getElementById("ciudadanoCampos").style.display = "block";
+                document.getElementById("extranjeroCampos").style.display = "none";
+            } else {
+                document.getElementById("ciudadanoCampos").style.display = "none";
+                document.getElementById("extranjeroCampos").style.display = "block";
+            }
+        }
+
+        function mostrarSpinner() {
+            const spinner = document.getElementById("spinner");
+            spinner.style.display = "flex";
+        }
+
+        function ocultarSpinner() {
+            const spinner = document.getElementById("spinner");
+            spinner.style.display = "none";
+        }
+
+        function handleImageError() {
+            alert("No se pudo cargar la imagen del spinner.");
+        }
+    </script>
+</body>
+
+</html>
